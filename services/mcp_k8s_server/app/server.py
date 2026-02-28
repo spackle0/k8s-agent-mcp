@@ -11,7 +11,7 @@
 from typing import Any
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from services.mcp_k8s_server.app import k8s_client
 
