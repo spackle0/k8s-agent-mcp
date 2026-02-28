@@ -134,7 +134,7 @@ async def main():
             print("Calling function:", tool.function.name)
             print("Arguments:", tool.function.arguments)
             output = await call_tool(tool.function.name, tool.function.arguments)
-            print("Function output:", output)
+            # print("Function output:", output)
 
     # --- Step 4: Second LLM call (final answer) ---
     # Append the assistant's tool-call message and the tool result to the
