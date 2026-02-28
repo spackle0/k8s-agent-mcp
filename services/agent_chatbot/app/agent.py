@@ -1,141 +1,127 @@
-"You'll need an .env file with: ANTHROPIC_API_KEY = 'sk-ant-...'"
+from ollama import ChatResponse, chat
 
-from anthropic import Anthropic
-import os
-import subprocess
+import asyncio
 
-from dotenv import load_dotenv
+import pprint
 
-load_dotenv()
+from mcp import ClientSession, Tool
+from mcp.client.streamable_http import streamable_http_client
 
+from typing import Any
 
-class Agent:
-    def __init__(self, client, get_user_message, tools: list):
-        self.client = client
-        self.get_user_message = get_user_message
-        self.tools = tools
-        self.system_prompt = """
-            You are a simple agent with one tool. 
-            If the user asks you to do something, try to do it with the bash tool.
-        """
-
-    def _run_inference(self, messages):
-        message = self.client.messages.create(
-            max_tokens=10000,
-            messages=messages,
-            model="claude-sonnet-4-6",
-            tools=self.tools,
-            system=self.system_prompt,
-        )
-
-        return message
-
-    def run(self):
-        print("Chat with the agent. Type 'quit', 'exit', or 'bye' to quit.")
-        conversation = []
-
-        while True:
-            try:
-                user_message = self.get_user_message()
-
-            except EOFError, KeyboardInterrupt:
-                print("\nGoodbye!")
-                break
-
-            if user_message.strip().lower() in ("quit", "exit", "bye"):
-                print("\nGoodbye!")
-                break
-
-            conversation.append({"role": "user", "content": user_message})
-
-            while True:
-                response = self._run_inference(conversation)
-                conversation.append({"role": "assistant", "content": response.content})
-
-                tool_results = []
-                for block in response.content:
-                    if block.type == "text":
-                        print("\n--------\n🤖 Agent:")
-                        print(block.text)
-
-                    elif block.type == "tool_use":
-                        print("Tool use: ", block.name, " with input: ", block.input)
-
-                        tool_result_content = ""
-                        if block.name == "run_bash":
-                            try:
-                                tool_result_content = run_bash(**block.input)
-                            except Exception as e:
-                                tool_result_content = str(e)
-
-                        print("Tool output: ", tool_result_content)
-
-                        tool_results.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": tool_result_content,
-                            }
-                        )
-                if tool_results:
-                    conversation.append({"role": "user", "content": tool_results})
-                else:
-                    break
-
-
-BASH_TOOL = {
-    "name": "run_bash",
-    "description": "Run something in bash. If the command is dangerous, you should confirm with the user.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "command": {
-                "type": "string",
-                "description": "The script to run",
-            },
-            "timeout": {
-                "type": "integer",
-                "description": "Seconds of timeout. Default is 30 seconds.",
+# Tools can still be manually defined and passed into chat
+subtract_two_numbers_tool = {
+    "type": "function",
+    "function": {
+        "name": "subtract_two_numbers",
+        "description": "Subtract two numbers",
+        "parameters": {
+            "type": "object",
+            "required": ["a", "b"],
+            "properties": {
+                "a": {"type": "integer", "description": "The first number"},
+                "b": {"type": "integer", "description": "The second number"},
             },
         },
-        "required": ["command"],
     },
 }
 
+def tool_to_dict(tool: Tool) -> dict:
+  return {
+    "type": "function",
+    "function": {
+      "name": tool.name,
+      "description": tool.description,
+      "parameters": {
+        "type": "object",
+        "required": tool.inputSchema["required"],
+        "properties": tool.inputSchema['properties']
+      }
+    }
+  }
 
-def run_bash(command: str, timeout: int = 30) -> str:
-    """Run a bash command.
-
-    Args:
-        command: Bash command to execute.
-        timeout: Max seconds before timeout.
-
-    Returns:
-        Command output or error message.
-    """
-    try:
-        result = subprocess.run(
-            command, shell=True, capture_output=True, text=True, timeout=timeout
+def format_tools_for_log(tools: dict) -> str:
+    lines = []
+    for name, tool in tools.items():
+        params = ", ".join(
+                f"{k}: {v.get('type', '?')}" + (" (required)" if k in tool.inputSchema.get("required", []) else "")
+                for k, v in tool.inputSchema.get("properties", {}).items()
         )
-        output = result.stdout + result.stderr
-        return output or "(no output)"
-    except subprocess.TimeoutExpired:
-        return f"Error: command timed out after {timeout}s"
+        lines.append(f"  {name}({params})")
+        if tool.description:
+            summary = tool.description.strip().split("\n")[0]
+            lines.append(f"    └─ {summary}")
+
+    header = f"Available tools ({len(tools)}):"
+    return "\n".join([header, *lines])
+
+async def call_tool(tool_name: str, tool_arguments: dict[str, Any]) -> Any:
+    # Call our MCP Server with a tool
+    async with streamable_http_client("http://localhost:8000/mcp") as (
+        read_stream,
+        write_stream,
+        _,
+    ):
+        async with ClientSession(read_stream, write_stream) as session:
+            await session.initialize()
+            result = await session.call_tool(tool_name, tool_arguments)
+            breakpoint()
+            return result.content
 
 
-def main():
-    client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+async def get_tools() -> dict[str, Tool]:
+    async with streamable_http_client("http://localhost:8000/mcp") as (
+        read_stream,
+        write_stream,
+        _,
+    ):
+        # Create a session using the client streams
+        async with ClientSession(read_stream, write_stream) as session:
+            # Initialize the connection
+            await session.initialize()
+            # List available tools
+            tools = (await session.list_tools()).tools
+            return {t.name: t for t in tools}
 
-    def get_user_message():
-        print("\n--------\n🧑 You: ", end="", flush=True)
-        user_message = input()
-        return user_message
 
-    tools = [BASH_TOOL]
+async def main():
+  available_tools = await get_tools()
+  print(format_tools_for_log(available_tools))
+  messages = [{"role": "user", "content": "What are the current weather alerts for alaska?"}]
+  print("Prompt:", messages[0]["content"])
 
-    agent = Agent(client, get_user_message, tools)
-    agent.run()
+  response: ChatResponse = chat(
+          "llama3.1:8b",
+          messages=messages,
+          tools=[tool_to_dict(t) for t in available_tools.values()],
+  )
+
+  if response.message.tool_calls:
+      # There may be multiple tool calls in the response
+      for tool in response.message.tool_calls:
+          # Ensure the function is available, and then call it
+          if tool.function.name not in available_tools:
+            raise RuntimeError(f"No function available - {tool.function.name}")
+          print("Calling function:", tool.function.name)
+          print("Arguments:", tool.function.arguments)
+          output = await call_tool(tool.function.name, tool.function.arguments)
+          print("Function output:", output)
+
+  # Only needed to chat with the model using the tool call results
+  if response.message.tool_calls:
+      # Add the function response to messages for the model to use
+      messages.append(response.message)
+      messages.append(
+          {"role": "tool", "content": str(output), "tool_name": tool.function.name}
+      )
+
+      # Get final response from model with function outputs
+      final_response = chat("llama3.1:8b", messages=messages)
+      print("Final response:", final_response.message.content)
+
+  else:
+      print("No tool calls returned from model")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
