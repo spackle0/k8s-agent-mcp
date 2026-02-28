@@ -2,12 +2,11 @@ from ollama import ChatResponse, chat
 
 import asyncio
 
-import pprint
-
-from mcp import ClientSession, Tool
-from mcp.client.streamable_http import streamable_http_client
+from fastmcp import Client
 
 from typing import Any
+
+MCP_SERVER_URL = "http://localhost:8000/mcp"
 
 # Tools can still be manually defined and passed into chat
 subtract_two_numbers_tool = {
@@ -26,7 +25,7 @@ subtract_two_numbers_tool = {
     },
 }
 
-def tool_to_dict(tool: Tool) -> dict:
+def tool_to_dict(tool: Any) -> dict:
   return {
     "type": "function",
     "function": {
@@ -56,32 +55,14 @@ def format_tools_for_log(tools: dict) -> str:
     return "\n".join([header, *lines])
 
 async def call_tool(tool_name: str, tool_arguments: dict[str, Any]) -> Any:
-    # Call our MCP Server with a tool
-    async with streamable_http_client("http://localhost:8000/mcp") as (
-        read_stream,
-        write_stream,
-        _,
-    ):
-        async with ClientSession(read_stream, write_stream) as session:
-            await session.initialize()
-            result = await session.call_tool(tool_name, tool_arguments)
-            breakpoint()
-            return result.content
+    async with Client(MCP_SERVER_URL) as client:
+        return await client.call_tool(tool_name, tool_arguments)
 
 
-async def get_tools() -> dict[str, Tool]:
-    async with streamable_http_client("http://localhost:8000/mcp") as (
-        read_stream,
-        write_stream,
-        _,
-    ):
-        # Create a session using the client streams
-        async with ClientSession(read_stream, write_stream) as session:
-            # Initialize the connection
-            await session.initialize()
-            # List available tools
-            tools = (await session.list_tools()).tools
-            return {t.name: t for t in tools}
+async def get_tools() -> dict:
+    async with Client(MCP_SERVER_URL) as client:
+        tools = await client.list_tools()
+        return {t.name: t for t in tools}
 
 
 async def main():
