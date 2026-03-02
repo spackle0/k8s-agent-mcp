@@ -126,26 +126,31 @@ async def main():
 
     # --- Step 3: Execute any requested tool calls ---
     # The model may request multiple tools in a single turn. We run each one
-    # and capture the last output (used in the follow-up message below).
+    # and append its result as a separate tool message to the conversation.
     if response.message.tool_calls:
-        for tool in response.message.tool_calls:
-            if tool.function.name not in available_tools:
-                raise RuntimeError(f"No function available - {tool.function.name}")
-            print("Calling function:", tool.function.name)
-            print("Arguments:", tool.function.arguments)
-            output = await call_tool(tool.function.name, tool.function.arguments)
-            # print("Function output:", output)
-
-    # --- Step 4: Second LLM call (final answer) ---
-    # Append the assistant's tool-call message and the tool result to the
-    # conversation history, then ask the model to produce a natural-language
-    # answer that incorporates the tool output.
-    if response.message.tool_calls:
+        # First, append the assistant's tool-call message itself.
         messages.append(response.message)
-        messages.append(
-            {"role": "tool", "content": str(output), "tool_name": tool.function.name}
-        )
 
+        for tool_call in response.message.tool_calls:
+            if tool_call.function.name not in available_tools:
+                raise RuntimeError(f"No function available - {tool_call.function.name}")
+            print("Calling function:", tool_call.function.name)
+            print("Arguments:", tool_call.function.arguments)
+            tool_output = await call_tool(
+                tool_call.function.name, tool_call.function.arguments
+            )
+            # Append a separate tool message for each tool call so all outputs are preserved.
+            messages.append(
+                {
+                    "role": "tool",
+                    "content": str(tool_output),
+                    "tool_name": tool_call.function.name,
+                }
+            )
+
+        # --- Step 4: Second LLM call (final answer) ---
+        # Ask the model to produce a natural-language answer that incorporates
+        # the outputs from all tool calls in this turn.
         final_response = chat("llama3.1:8b", messages=messages)
         print("Final response:", final_response.message.content)
 
