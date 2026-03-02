@@ -1,12 +1,5 @@
 # server.py
 #
-# FastMCP server that exposes weather data from the National Weather Service
-# (NWS) public API as MCP tools. Any MCP-compatible client (such as agent.py)
-# can connect over streamable-HTTP and call these tools by name.
-#
-# Tools exposed:
-#   - get_alerts(state)              → active weather alerts for a US state
-#   - get_forecast(latitude, longitude) → multi-period weather forecast
 
 from typing import Any
 
