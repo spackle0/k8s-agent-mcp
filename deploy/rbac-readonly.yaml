@@ -36,3 +36,14 @@ subjects:
   - kind: ServiceAccount
     name: mcp-k8s-sa
     namespace: k8s-agent
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8s-agent
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-k8s-sa
+  namespace: k8s-agent
