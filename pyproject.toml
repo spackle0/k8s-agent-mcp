@@ -4,7 +4,8 @@ version = "0.1.0"
 description = "Agentic AI Experimentation in Kubernetes"
 requires-python = ">=3.14"
 dependencies = [
-    "fastapi>=0.133.1",
+    "fastapi>=0.135.1",
+    "fastmcp>=3.0.2",
     "httpx>=0.28.1",
     "kubernetes>=35.0.0",
     "mcp>=1.26.0",
@@ -16,7 +17,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     {include-group = "lint"},
-    {include-group = "test"}
+    {include-group = "test"},
+    "ruff>=0.15.2",
 ]
 lint = [
     "ruff>=0.15.2",

@@ -52,8 +52,8 @@ def tool_to_dict(tool: Any) -> dict:
             "description": tool.description,
             "parameters": {
                 "type": "object",
-                "required": tool.inputSchema["required"],
-                "properties": tool.inputSchema["properties"],
+                "required": tool.inputSchema.get("required", []),
+                "properties": tool.inputSchema.get("properties", {}),
             },
         },
     }
@@ -63,7 +63,7 @@ def format_tools_for_log(tools: dict) -> str:
     """Build a human-readable summary of available tools for console output.
 
     Each tool is printed with its name, parameter names/types, and the first
-    line of its description so you can quickly see what the server exposes.
+    line of its description, so you can quickly see what the server exposes.
     """
     lines = []
     for name, tool in tools.items():

@@ -117,7 +117,7 @@ async def get_forecast(latitude: float, longitude: float) -> str:
     # Format each period into a short block and join them with dividers.
     periods = forecast_data["properties"]["periods"]
     forecasts = []
-    for period in periods[:5]:  # Only show next 5 periods
+    for period in periods[:5]:  # Only show the next 5 periods
         forecast = f"""
 {period["name"]}:
 Temperature: {period["temperature"]}°{period["temperatureUnit"]}
@@ -131,7 +131,7 @@ Forecast: {period["detailedForecast"]}
 
 def main():
     # Start the FastMCP server using the streamable-HTTP transport.
-    # By default this listens on port 8000 at /mcp, matching MCP_SERVER_URL
+    # By default, this listens on port 8000 at /mcp, matching MCP_SERVER_URL
     # in agent.py.
     mcp.run(transport="streamable-http")
 
