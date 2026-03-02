@@ -1,0 +1,28 @@
+[project]
+name = "k8s-agent-mcp"
+version = "0.1.0"
+description = "Agentic AI Experimentation in Kubernetes"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.135.1",
+    "fastmcp>=3.0.2",
+    "httpx>=0.28.1",
+    "kubernetes>=35.0.0",
+    "mcp>=1.26.0",
+    "ollama>=0.6.1",
+    "pydantic>=2.12.5",
+    "uvicorn>=0.41.0",
+]
+
+[dependency-groups]
+dev = [
+    {include-group = "lint"},
+    {include-group = "test"},
+    "ruff>=0.15.2",
+]
+lint = [
+    "ruff>=0.15.2",
+]
+test = [
+    "pytest>=9.0.2",
+]
