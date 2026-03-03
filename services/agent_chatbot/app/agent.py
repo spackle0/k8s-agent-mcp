@@ -64,15 +64,17 @@ def format_tools_for_log(tools: dict) -> str:
     return "\n".join([header, *lines])
 
 
-async def call_tool(tool_name: str, tool_arguments: dict[str, Any]) -> Any:
-    """Execute a single tool call on the MCP server and return the result.
+async def call_tool(tool_name: str, tool_arguments: dict[str, Any]) -> str:
+    """Execute a single tool call on the MCP server and return the text result.
 
     Opens a short-lived connection to the MCP server for each call. The
     FastMCP Client handles the streamable-HTTP transport and protocol
-    handshake automatically.
+    handshake automatically. Extracts the plain text from the first content
+    item so the LLM receives a clean string rather than a raw result object.
     """
     async with Client(MCP_SERVER_URL) as client:
-        return await client.call_tool(tool_name, tool_arguments)
+        result = await client.call_tool(tool_name, tool_arguments)
+        return result.content[0].text if result.content else ""
 
 
 async def get_tools() -> dict:
@@ -94,10 +96,21 @@ async def main():
     print(format_tools_for_log(available_tools))
 
     # --- Step 2: First LLM call (tool selection) ---
-    # Send the user message together with the tool definitions. The model
-    # decides whether to answer directly or to invoke one or more tools.
-    messages = [{"role": "user", "content": "What namespaces are in my Kubernetes cluster?"}]
-    print("Prompt:", messages[0]["content"])
+    # The system message constrains the LLM to report tool results directly
+    # rather than improvising generic advice. The user message is the prompt.
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a Kubernetes assistant. "
+                "Use the provided tools to answer questions. "
+                "Report the tool results directly and concisely. "
+                "Do not suggest kubectl commands or external tools."
+            ),
+        },
+        {"role": "user", "content": "What namespaces are in my Kubernetes cluster?"},
+    ]
+    print("Prompt:", messages[1]["content"])
 
     response: ChatResponse = chat(
         "llama3.1:8b",
