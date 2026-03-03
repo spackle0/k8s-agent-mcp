@@ -20,9 +20,7 @@ mcp = FastMCP("k8s-agent")
 def list_namespaces() -> list[str]:
     """List all namespaces in the Kubernetes cluster.
 
-    Queries the cluster using the in-cluster service account when running
-    inside a pod, or falls back to the local kubeconfig when running locally.
-    Returns a plain list of namespace name strings.
+    Returns a plain list of namespace name strings. Takes no arguments.
     """
     return k8s_client.list_namespaces()
 
