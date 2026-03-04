@@ -24,6 +24,15 @@ def list_namespaces() -> list[str]:
     """
     return k8s_client.list_namespaces()
 
+@mcp.tool()
+def list_pods(namespace: str) -> list[str]:
+    """List all pods in a given namespace.
+
+    Takes a namespace string and returns a list of pod name strings.
+    """
+    pods = k8s_client.list_pods(namespace)
+    return [p.metadata.name for p in pods]
+
 
 def main():
     # Start the FastMCP server using the streamable-HTTP transport.

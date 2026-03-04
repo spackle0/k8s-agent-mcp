@@ -31,19 +31,19 @@ core_api = None
 apps_api = None
 
 
-def list_namespaces():
+def list_namespaces() -> list[str]:
     core_api_client, _ = init()
     ns = core_api_client.list_namespace()
     return [n.metadata.name for n in ns.items]
 
 
-def list_pods(namespace: str):
+def list_pods(namespace: str) -> list[str]:
     core_api_client, _ = init()
     pods = core_api_client.list_namespaced_pod(namespace=namespace)
     return pods.items
 
 
-def read_pod_log(namespace: str, pod: str, container=None, tail_lines=200):
+def read_pod_log(namespace: str, pod: str, container=None, tail_lines=20) -> list[str]:
     core_api_client, _ = init()
     return core_api_client.read_namespaced_pod_log(
         name=pod,
