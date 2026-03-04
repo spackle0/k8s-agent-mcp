@@ -1,11 +1,17 @@
 # agent.py
 #
-# This is the LLM agent that ties together the language model (via Ollama) and
-# the MCP tool server. The flow is:
-#   1. Fetch the list of available tools from the MCP server at startup.
-#   2. Send the user's message to the LLM along with the tool definitions.
-#   3. If the LLM decides to call a tool, execute it against the MCP server.
-#   4. Feed the tool result back into the conversation and get a final answer.
+# Interactive Kubernetes troubleshooting chatbot. Connects to the MCP server
+# once at startup, then runs a conversation loop where the user can ask
+# free-form questions. The LLM reasons over the available tools and may call
+# them multiple times per turn before producing a final answer.
+#
+# Flow per turn:
+#   1. Read user input.
+#   2. Agentic loop: call LLM → execute any tool calls → repeat until the
+#      LLM stops requesting tools and produces a final answer.
+#   3. Print the answer and wait for the next input.
+#
+# Type 'quit' or 'exit' (or Ctrl+C) to end the session.
 
 from ollama import ChatResponse, chat
 
@@ -17,6 +23,15 @@ from typing import Any
 
 # Base URL for the FastMCP server's streamable-HTTP endpoint.
 MCP_SERVER_URL = "http://localhost:8000/mcp"
+
+SYSTEM_PROMPT = (
+    "You are a Kubernetes troubleshooting assistant. "
+    "Use the provided tools to answer questions about the cluster. "
+    "Report tool results directly and concisely. "
+    "Do not suggest kubectl commands or external tools."
+)
+
+MODEL = "llama3.1:8b"
 
 
 def tool_to_dict(tool: Any) -> dict:
@@ -48,7 +63,7 @@ def format_tools_for_log(tools: dict) -> str:
     """
     lines = []
     for name, tool in tools.items():
-        # Summarise each parameter as "name: type (required)" or "name: type".
+        # Summarize each parameter as "name: type (required)" or "name: type".
         params = ", ".join(
             f"{k}: {v.get('type', '?')}"
             + (" (required)" if k in tool.inputSchema.get("required", []) else "")
@@ -64,87 +79,101 @@ def format_tools_for_log(tools: dict) -> str:
     return "\n".join([header, *lines])
 
 
-async def call_tool(tool_name: str, tool_arguments: dict[str, Any]) -> str:
+async def call_tool(client: Client, tool_name: str, tool_arguments: dict[str, Any]) -> str:
     """Execute a single tool call on the MCP server and return the text result.
 
-    Opens a short-lived connection to the MCP server for each call. The
-    FastMCP Client handles the streamable-HTTP transport and protocol
-    handshake automatically. Extracts the plain text from the first content
-    item so the LLM receives a clean string rather than a raw result object.
+    Reuses the persistent client passed in rather than opening a new
+    connection. Extracts the plain text from the first content item so the
+    LLM receives a clean string rather than a raw result object.
     """
-    async with Client(MCP_SERVER_URL) as client:
-        result = await client.call_tool(tool_name, tool_arguments)
-        return result.content[0].text if result.content else ""
+    result = await client.call_tool(tool_name, tool_arguments)
+    return result.content[0].text if result.content else ""
 
 
-async def get_tools() -> dict:
+async def get_tools(client: Client) -> dict:
     """Fetch all tools registered on the MCP server.
 
     Returns a dict keyed by tool name so the rest of the agent can look up
     a tool's metadata by name in O(1) time.
     """
-    async with Client(MCP_SERVER_URL) as client:
-        tools = await client.list_tools()
-        return {t.name: t for t in tools}
+    tools = await client.list_tools()
+    return {t.name: t for t in tools}
+
+
+async def run_turn(
+    client: Client,
+    available_tools: dict,
+    ollama_tools: list,
+    messages: list,
+    user_input: str,
+) -> str:
+    """Run one full conversation turn and return the assistant's final answer.
+
+    Appends the user message to the history, then enters the agentic loop:
+    the LLM is called repeatedly until it stops requesting tools. Each tool
+    result is appended to the message history so the LLM has full context
+    for its next decision. Returns the final answer text.
+    """
+    messages.append({"role": "user", "content": user_input})
+
+    # Agentic loop: keep calling the LLM until it produces a final answer
+    # with no further tool calls. The LLM may chain multiple tool calls
+    # across several iterations before it has enough information to respond.
+    while True:
+        response: ChatResponse = chat(MODEL, messages=messages, tools=ollama_tools)
+
+        if not response.message.tool_calls:
+            # No tool calls — the LLM is done reasoning. Append the final
+            # answer to history so future turns have context, then return it.
+            messages.append(response.message)
+            return response.message.content
+
+        # The LLM requested one or more tools. Execute each one and append
+        # the results to the message history before looping back.
+        messages.append(response.message)
+        for tool_call in response.message.tool_calls:
+            name = tool_call.function.name
+            args = tool_call.function.arguments
+
+            if name not in available_tools:
+                raise RuntimeError(f"LLM requested unknown tool: {name}")
+
+            print(f"  [calling {name}({args})]")
+            output = await call_tool(client, name, args)
+            messages.append({"role": "tool", "content": output, "tool_name": name})
 
 
 async def main():
-    # --- Step 1: Discover tools ---
-    # Pull the current tool list from the MCP server and print it so the
-    # operator can confirm what capabilities are available.
-    available_tools = await get_tools()
-    print(format_tools_for_log(available_tools))
+    async with Client(MCP_SERVER_URL) as client:
+        # --- Startup: discover tools and build the Ollama tool list once ---
+        available_tools = await get_tools(client)
+        print(format_tools_for_log(available_tools))
+        print("\nKubernetes assistant ready. Type 'exit' or 'quit' to quit.\n")
 
-    # --- Step 2: First LLM call (tool selection) ---
-    # The system message constrains the LLM to report tool results directly
-    # rather than improvising generic advice. The user message is the prompt.
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are a Kubernetes assistant. "
-                "Use the provided tools to answer questions. "
-                "Report the tool results directly and concisely. "
-                "Do not suggest kubectl commands or external tools."
-            ),
-        },
-        {"role": "user", "content": "What namespaces are in my Kubernetes cluster?"},
-    ]
-    print("Prompt:", messages[1]["content"])
+        # Ollama-format tool list is constant for the session.
+        ollama_tools = [tool_to_dict(t) for t in available_tools.values()]
 
-    response: ChatResponse = chat(
-        "llama3.1:8b",
-        messages=messages,
-        tools=[tool_to_dict(t) for t in available_tools.values()],
-    )
+        # Conversation history persists across turns so the LLM has full
+        # context. The system prompt is fixed at index 0.
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-    # --- Step 3: Execute any requested tool calls ---
-    # The model may request multiple tools in a single turn. We run each one
-    # and capture the last output (used in the follow-up message below).
-    if response.message.tool_calls:
-        for tool in response.message.tool_calls:
-            if tool.function.name not in available_tools:
-                raise RuntimeError(f"No function available - {tool.function.name}")
-            print("Calling function:", tool.function.name)
-            print("Arguments:", tool.function.arguments)
-            output = await call_tool(tool.function.name, tool.function.arguments)
-            print("Function output:", output)
+        # --- Conversation loop ---
+        while True:
+            try:
+                user_input = input("You: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print("\nGoodbye.")
+                break
 
-    # --- Step 4: Second LLM call (final answer) ---
-    # Append the assistant's tool-call message and the tool result to the
-    # conversation history, then ask the model to produce a natural-language
-    # answer that incorporates the tool output.
-    if response.message.tool_calls:
-        messages.append(response.message)
-        messages.append(
-            {"role": "tool", "content": str(output), "tool_name": tool.function.name}
-        )
+            if not user_input:
+                continue
 
-        final_response = chat("llama3.1:8b", messages=messages)
-        print("Final response:", final_response.message.content)
+            if user_input.lower() in ("exit", "quit"):
+                print("Goodbye.")
+                break
 
-    else:
-        print("No tool calls returned from model")
+            answer = await run_turn(client, available_tools, ollama_tools, messages, user_input)
+            print(f"Assistant: {answer}\n")
 
 
 if __name__ == "__main__":
