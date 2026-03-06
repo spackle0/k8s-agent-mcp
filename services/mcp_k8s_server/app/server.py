@@ -24,6 +24,7 @@ def list_namespaces() -> list[str]:
     """
     return k8s_client.list_namespaces()
 
+
 @mcp.tool()
 def list_pods(namespace: str) -> list[str]:
     """List all pods in a given namespace.
@@ -32,6 +33,18 @@ def list_pods(namespace: str) -> list[str]:
     """
     pods = k8s_client.list_pods(namespace)
     return [p.metadata.name for p in pods]
+
+
+@mcp.tool()
+def read_pod_log(namespace: str, pod: str, container: str | None = None, tail_lines: int = 20) -> str:
+    """Read the logs for a pod's container.
+
+    Returns the last `tail_lines` lines of the pod's logs as a plain string.
+    If `container` is None, logs from the pod's default container are returned.
+    """
+    logs = k8s_client.read_pod_log(namespace, pod, container=container, tail_lines=tail_lines)
+    # Kubernetes client returns a raw string for logs; ensure we return a string.
+    return logs or ""
 
 
 def main():
