@@ -143,11 +143,9 @@ return core_api.list_namespaced_pod(namespace=namespace)  # Wrong — not serial
 
 ## Planned Features
 
-1. **Enrich `list_pods`** with status fields (phase, ready, restart_count, reason)
-2. **`read_pod_log` tool** — already in `k8s_client.py`, needs MCP tool wrapper
-3. **`get_events` tool** — Kubernetes events are often the first place to look when troubleshooting
-4. **FastAPI alerting webhook** — stateless endpoint that accepts alert payloads (Prometheus/Alertmanager format), runs the agent, returns structured diagnosis. Persistent MCP client via FastAPI lifespan, asyncio.Lock for concurrent request safety.
-5. **Agentic loop safety** — consider a max iterations guard on the `while True` loop in `run_turn()`
+1. **`get_events` tool** — Kubernetes events are often the first place to look when troubleshooting
+2. **FastAPI alerting webhook** — stateless endpoint that accepts alert payloads (Prometheus/Alertmanager format), runs the agent, returns structured diagnosis. Persistent MCP client via FastAPI lifespan, asyncio.Lock for concurrent request safety.
+3. **Agentic loop safety** — consider a max iterations guard on the `while True` loop in `run_turn()`
 
 ---
 

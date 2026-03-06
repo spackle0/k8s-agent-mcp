@@ -5,7 +5,9 @@
 # streamable-HTTP and call these tools by name.
 #
 # Tools exposed:
-#   - list_namespaces() → all namespace names in the cluster
+#   - list_namespaces()  → all namespace names in the cluster
+#   - list_pods()        → pod status dicts for a given namespace
+#   - read_pod_log()     → last N lines of a pod's container logs
 
 from fastmcp import FastMCP
 
