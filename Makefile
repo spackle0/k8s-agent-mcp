@@ -1,6 +1,6 @@
 VERSION := 0.1.0
 
-.PHONY: help ollama server agent start lint format test compose-agent compose-up
+.PHONY: help ollama server agent start lint format test compose-agent compose-up pre-commit-enable pre-commit-disable
 
 help:
 	@printf "k8s-agent-mcp Makefile help\n\n"
@@ -12,9 +12,11 @@ help:
 	@printf "  start         - Starts the MCP server in the background and runs the agent in the foreground.\n"
 	@printf "  compose-agent - Build the agent image and run it interactively via Docker Compose.\n"
 	@printf "  compose-up    - Start mcp-server and agent in detached mode via Docker Compose.\n"
-	@printf "  lint          - Run ruff to check for lint issues.\n"
-	@printf "  format        - Run ruff to autoformat code.\n"
-	@printf "  test          - Run the project's pytest test suite for services.\n\n"
+	@printf "  lint               - Run ruff to check for lint issues.\n"
+	@printf "  format             - Run ruff to autoformat code.\n"
+	@printf "  test               - Run the project's pytest test suite for services.\n"
+	@printf "  pre-commit-enable  - Install pre-commit hooks into .git/hooks.\n"
+	@printf "  pre-commit-disable - Remove pre-commit hooks from .git/hooks.\n\n"
 	@printf "Notes:\n"
 	@printf "  - 'make' with no args shows this help (default).\n"
 	@printf "  - Use 'make compose-agent' to run the agent interactively inside Docker.\n"
@@ -54,6 +56,16 @@ compose-agent:
 # Convenience: bring up compose services in background (mcp-server + agent)
 compose-up:
 	docker compose up -d mcp-server agent
+
+## ── Pre-commit ───────────────────────────────────────────────────────────────
+
+# Install pre-commit hooks so they run automatically on every commit.
+pre-commit-enable:
+	pre-commit install
+
+# Remove pre-commit hooks from .git/hooks.
+pre-commit-disable:
+	pre-commit uninstall
 
 ## ── Code quality ─────────────────────────────────────────────────────────────
 
