@@ -1,6 +1,25 @@
 VERSION := 0.1.0
 
-.PHONY: ollama server agent start lint format test
+.PHONY: help ollama server agent start lint format test compose-agent compose-up
+
+help:
+	@printf "k8s-agent-mcp Makefile help\n\n"
+	@printf "Usage: make <target>\n\n"
+	@printf "Common targets (run 'make <target>'):\n"
+	@printf "  ollama        - Pulls the LLM model (ollama) and starts the Ollama server.\n"
+	@printf "  server        - Starts the MCP k8s server (FastMCP) in the foreground.\n"
+	@printf "  agent         - Runs the interactive agent chatbot locally (requires server).\n"
+	@printf "  start         - Starts the MCP server in the background and runs the agent in the foreground.\n"
+	@printf "  compose-agent - Build the agent image and run it interactively via Docker Compose.\n"
+	@printf "  compose-up    - Start mcp-server and agent in detached mode via Docker Compose.\n"
+	@printf "  lint          - Run ruff to check for lint issues.\n"
+	@printf "  format        - Run ruff to autoformat code.\n"
+	@printf "  test          - Run the project's pytest test suite for services.\n\n"
+	@printf "Notes:\n"
+	@printf "  - 'make' with no args shows this help (default).\n"
+	@printf "  - Use 'make compose-agent' to run the agent interactively inside Docker.\n"
+	@printf "  - Use 'docker compose up -d' + 'docker compose exec -it agent /bin/sh' to exec into a running agent.\n"
+	@printf "\n"
 
 ## ── Local development ────────────────────────────────────────────────────────
 
@@ -26,6 +45,15 @@ start:
 	SERVER_PID=$$!; \
 	trap "kill $$SERVER_PID" EXIT; \
 	uv run python -m services.agent_chatbot.app.agent
+
+# Convenience: run the agent via docker-compose interactively
+compose-agent:
+	docker compose build agent
+	docker compose run --rm -it agent
+
+# Convenience: bring up compose services in background (mcp-server + agent)
+compose-up:
+	docker compose up -d mcp-server agent
 
 ## ── Code quality ─────────────────────────────────────────────────────────────
 
