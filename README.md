@@ -6,14 +6,14 @@
 
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-[![CI](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/docker-build-test.yaml/badge.svg)](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/ci.yaml/badge.svg)](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/ci.yaml)
 
 [![codecov](https://codecov.io/gh/spackle0/k8s-agent-mcp/graph/badge.svg?token=YJVD7W9Q37)](https://codecov.io/gh/spackle0/k8s-agent-mcp)
 
 
 An experiment in Agentic AI with a Kubernetes slant
-
-## Docker Compose (interactive agent)
+[
+## Docker Compose (interactive age]()nt)
 
 The `agent` service is interactive — the container keeps STDIN open and allocates a TTY so you can type directly into the running Python process.
 

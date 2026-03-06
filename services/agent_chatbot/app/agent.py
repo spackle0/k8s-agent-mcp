@@ -19,6 +19,7 @@ import asyncio
 import os
 
 from fastmcp import Client
+from fastmcp.exceptions import ToolError
 
 from typing import Any
 
@@ -88,8 +89,11 @@ async def call_tool(client: Client, tool_name: str, tool_arguments: dict[str, An
     connection. Extracts the plain text from the first content item so the
     LLM receives a clean string rather than a raw result object.
     """
-    result = await client.call_tool(tool_name, tool_arguments)
-    return result.content[0].text if result.content else ""
+    try:
+        result = await client.call_tool(tool_name, tool_arguments)
+        return result.content[0].text if result.content else ""
+    except ToolError as e:
+        return f"Tool error: {e}"
 
 
 async def get_tools(client: Client) -> dict:
@@ -174,8 +178,11 @@ async def main():
                 print("Goodbye.")
                 break
 
-            answer = await run_turn(client, available_tools, ollama_tools, messages, user_input)
-            print(f"Assistant: {answer}\n")
+            try:
+                answer = await run_turn(client, available_tools, ollama_tools, messages, user_input)
+                print(f"Assistant: {answer}\n")
+            except Exception as e:
+                print(f"Error: {e}\n")
 
 
 if __name__ == "__main__":
