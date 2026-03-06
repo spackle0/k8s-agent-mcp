@@ -6,7 +6,6 @@
 
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-
 [![CI](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/docker-build-test.yaml/badge.svg)](https://github.com/johndoe/my-project/actions/workflows/ci.yml)
 
 An experiment in Agentic AI with a Kubernetes slant
