@@ -617,7 +617,6 @@ dependencies = [
     { name = "fastmcp" },
     { name = "httpx" },
     { name = "kubernetes" },
-    { name = "mcp" },
     { name = "ollama" },
     { name = "pydantic" },
     { name = "uvicorn" },
@@ -634,8 +633,10 @@ dev = [
     { name = "ruff" },
 ]
 lint = [
-    { name = "bandit" },
     { name = "ruff" },
+]
+sec = [
+    { name = "bandit" },
 ]
 test = [
     { name = "pytest" },
@@ -650,7 +651,6 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=3.0.2" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "kubernetes", specifier = ">=35.0.0" },
-    { name = "mcp", specifier = ">=1.26.0" },
     { name = "ollama", specifier = ">=0.6.1" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "uvicorn", specifier = ">=0.41.0" },
@@ -666,10 +666,8 @@ dev = [
     { name = "pytest-mock", specifier = ">=3.15.1" },
     { name = "ruff", specifier = ">=0.15.2" },
 ]
-lint = [
-    { name = "bandit", specifier = ">=1.9.4" },
-    { name = "ruff", specifier = ">=0.15.2" },
-]
+lint = [{ name = "ruff", specifier = ">=0.15.2" }]
+sec = [{ name = "bandit", specifier = ">=1.9.4" }]
 test = [
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-asyncio", specifier = ">=1.3.0" },
