@@ -1,13 +1,4 @@
 import pytest
-import sys
-from pathlib import Path
-
-# Ensure project root is on sys.path so tests can import the `services` package.
-ROOT = Path(__file__).resolve().parents[3]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from types import SimpleNamespace
 
 # Import the server module directly so we can patch its k8s_client import.
 from services.mcp_k8s_server.app import server as server_app
@@ -18,14 +9,17 @@ def patch_k8s_client(monkeypatch):
     """Patch the k8s_client functions so we don't need a real K8s cluster.
 
     This makes the smoke test fast and hermetic: the server functions are
-    exercised end-to-end but the underlying K8s calls are stubbed.
+    exercised end-to-end, but the underlying K8s calls are stubbed.
     """
 
+    # noinspection PyUnusedLocal
     class FakeK8sClient:
-        def list_namespaces(self):
+        @staticmethod
+        def list_namespaces():
             return ["default", "kube-system"]
 
-        def list_pods(self, namespace: str):
+        @staticmethod
+        def list_pods(namespace: str):
             return [{
                 "name": "mypod",
                 "phase": "Running",
@@ -34,7 +28,8 @@ def patch_k8s_client(monkeypatch):
                 "reason": None,
             }]
 
-        def read_pod_log(self, namespace: str, pod: str, container=None, tail_lines=20):
+        @staticmethod
+        def read_pod_log(namespace: str, pod: str, container=None, tail_lines=20):
             return "line1\nline2\nline3"
 
     monkeypatch.setattr(server_app.k8s_client, "get_client", lambda: FakeK8sClient())

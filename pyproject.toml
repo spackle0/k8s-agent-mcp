@@ -57,7 +57,8 @@ order-by-type = true
 
 # pytest configuration
 [tool.pytest.ini_options]
-addopts="-ra --tb=short "
+addopts = "-ra --tb=short"
+pythonpath = ["."]
 # These are clutter
 filterwarnings = [
     "ignore:datetime.datetime.utcnow:DeprecationWarning",

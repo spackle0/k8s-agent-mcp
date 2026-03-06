@@ -34,7 +34,7 @@ def list_pods(namespace: str) -> list[dict]:
       - phase: overall pod phase (Running, Pending, Failed, Succeeded, Unknown)
       - ready: true if all containers are passing their readiness checks
       - restart_count: total restarts across all containers in the pod
-      - reason: waiting reason if a container is stuck (e.g. CrashLoopBackOff,
+      - reason: waiting reason if a container is stuck (e.g., CrashLoopBackOff,
                 ImagePullBackOff, OOMKilled), or null if not applicable
     """
     return k8s_client.list_pods(namespace)
@@ -54,7 +54,7 @@ def read_pod_log(namespace: str, pod: str, container: str | None = None, tail_li
 
 def main():
     # Start the FastMCP server using the streamable-HTTP transport.
-    # By default this listens on port 8000 at /mcp, matching MCP_SERVER_URL
+    # By default, this listens on port 8000 at /mcp, matching MCP_SERVER_URL
     # in agent.py.
     mcp.run(transport="streamable-http")
 
