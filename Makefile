@@ -1,3 +1,5 @@
+VERSION := 0.1.0
+
 .PHONY: ollama server agent start lint format test
 
 ## ── Local development ────────────────────────────────────────────────────────

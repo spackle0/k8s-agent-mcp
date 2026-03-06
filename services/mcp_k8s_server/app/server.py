@@ -27,10 +27,15 @@ def list_namespaces() -> list[str]:
 
 @mcp.tool()
 def list_pods(namespace: str) -> list[dict]:
-    """List all pods in a given namespace.
+    """List all pods in a given namespace with their current status.
 
-    Takes a namespace string and returns a list of structured dicts describing
-    each pod (name, phase, ready, restart_count, reason).
+    Takes a namespace string and returns a list of dicts, each with:
+      - name: pod name
+      - phase: overall pod phase (Running, Pending, Failed, Succeeded, Unknown)
+      - ready: true if all containers are passing their readiness checks
+      - restart_count: total restarts across all containers in the pod
+      - reason: waiting reason if a container is stuck (e.g. CrashLoopBackOff,
+                ImagePullBackOff, OOMKilled), or null if not applicable
     """
     return k8s_client.list_pods(namespace)
 

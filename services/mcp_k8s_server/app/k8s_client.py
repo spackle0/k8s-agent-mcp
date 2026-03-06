@@ -3,9 +3,9 @@
 Basic libraries for kubernetes connectivity
 """
 
-from kubernetes import client, config
 from functools import cache
-from typing import List, Optional
+
+from kubernetes import client, config
 
 
 class K8sClient:
@@ -84,13 +84,13 @@ def close_client() -> None:
 
 
 # Module-level convenience functions (preserve previous public API)
-def list_namespaces() -> List[str]:
+def list_namespaces() -> list[str]:
     core_api = get_client().core()
     ns = core_api.list_namespace()
     return [n.metadata.name for n in ns.items]
 
 
-def list_pods(namespace: str) -> List[dict]:
+def list_pods(namespace: str) -> list[dict]:
     """Return a list of structured pod dicts for the given namespace.
 
     Each dict contains:
@@ -98,14 +98,14 @@ def list_pods(namespace: str) -> List[dict]:
       - phase: str
       - ready: bool
       - restart_count: int
-      - reason: Optional[str]
+      - reason: str | None
 
     This is JSON-serializable and safe to return from MCP tools.
     """
     core_api = get_client().core()
     pods = core_api.list_namespaced_pod(namespace=namespace)
 
-    result: List[dict] = []
+    result: list[dict] = []
     for p in pods.items:
         name = getattr(p.metadata, "name", "")
         phase = getattr(p.status, "phase", "Unknown")
@@ -114,10 +114,10 @@ def list_pods(namespace: str) -> List[dict]:
         ready = True
         restart_count = 0
         reason = None
-        container_statuses = getattr(p.status, "container_statuses", None) or getattr(p.status, "containerStatuses", None) or []
+        container_statuses = getattr(p.status, "container_statuses", None) or []
         for cs in container_statuses:
             ready = ready and bool(getattr(cs, "ready", False))
-            restart_count += int(getattr(cs, "restart_count", getattr(cs, "restartCount", 0)))
+            restart_count += int(getattr(cs, "restart_count", 0))
             # If a waiting state is present, prefer that reason
             state = getattr(cs, "state", None)
             if state:
@@ -140,7 +140,7 @@ def list_pods(namespace: str) -> List[dict]:
     return result
 
 
-def read_pod_log(namespace: str, pod: str, container: Optional[str] = None, tail_lines: int = 20) -> str:
+def read_pod_log(namespace: str, pod: str, container: str | None = None, tail_lines: int = 20) -> str:
     core_api = get_client().core()
     return core_api.read_namespaced_pod_log(
         name=pod,
