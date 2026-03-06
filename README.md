@@ -12,8 +12,8 @@
 
 
 An experiment in Agentic AI with a Kubernetes slant
-
-## Docker Compose (interactive agent)
+[
+## Docker Compose (interactive age]()nt)
 
 The `agent` service is interactive — the container keeps STDIN open and allocates a TTY so you can type directly into the running Python process.
 

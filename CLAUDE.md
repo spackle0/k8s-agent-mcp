@@ -18,13 +18,24 @@ services/
     app/
       server.py       # FastMCP server — defines @mcp.tool() functions
       k8s_client.py   # Thin wrapper around the kubernetes Python client
+    tests/
+      test_smoke.py   # Smoke tests with FakeK8sClient
   agent_chatbot/
     app/
       agent.py        # Interactive LLM chatbot with agentic tool loop
+    tests/
+      .gitkeep        # Placeholder so git tracks the empty directory
 deploy/
   rbac-readonly.yaml  # K8s RBAC for in-cluster service account
 docker/
   mcp-server.Dockerfile
+  agent.Dockerfile
+scripts/
+  run_tests.sh        # pytest runner; treats exit codes 4/5 as success
+.github/
+  workflows/
+    ci.yaml           # CI: runs tests on push/PR to main
+docker-compose.yaml
 pyproject.toml        # uv-managed dependencies
 ```
 
@@ -71,9 +82,8 @@ Defined in `server.py`, implemented in `k8s_client.py`:
 | Tool | Signature | Returns |
 |---|---|---|
 | `list_namespaces` | `() -> list[str]` | Namespace name strings |
-| `list_pods` | `(namespace: str) -> list[str]` | Pod name strings in that namespace |
-
-**Planned**: Enrich `list_pods` to return status dicts (phase, ready, restart_count, reason) so the LLM can identify CrashLoopBackOff pods. Add `read_pod_log` tool.
+| `list_pods` | `(namespace: str) -> list[dict]` | Pod status dicts (name, phase, ready, restart_count, reason) |
+| `read_pod_log` | `(namespace: str, pod: str, container: str \| None, tail_lines: int) -> str` | Last N lines of pod logs |
 
 ---
 
@@ -100,15 +110,14 @@ def list_pods(namespace: str) -> list[dict]:
 ```
 
 ### Tool Return Types
-MCP tools must return JSON-serializable types. The kubernetes Python client returns `V1Pod` and similar objects that **cannot** be serialized — always extract fields explicitly in `server.py`:
+MCP tools must return JSON-serializable types. The kubernetes Python client returns `V1Pod` and similar objects that **cannot** be serialized — always extract fields explicitly into plain dicts or strings. In this project, `k8s_client.py` handles extraction so `server.py` tools can return its output directly:
 
 ```python
-# Wrong — V1Pod is not serializable
+# k8s_client.py extracts fields into a plain dict — safe to return from MCP tool
 return k8s_client.list_pods(namespace)
 
-# Correct — extract what you need
-pods = k8s_client.list_pods(namespace)
-return [p.metadata.name for p in pods]
+# Never return raw kubernetes client objects from a tool
+return core_api.list_namespaced_pod(namespace=namespace)  # Wrong — not serializable
 ```
 
 ### Tool Design Philosophy
@@ -123,8 +132,8 @@ return [p.metadata.name for p in pods]
 ## Workflow Preferences
 
 - Do not commit by default. Make code changes and stop. The user reviews `git diff` before deciding to commit. Only commit when explicitly asked.
-- Active branch: `mcp_enhancement`. If the branch does not exist, check for the current branch and switch to it, then update this file.
-- The worktree `claude/gallant-turing` should be kept in sync with `mcp_enhancement` when resuming sessions (`git reset --hard <sha>`).
+- Active branch: `mcp_more_tools`. If the branch does not exist, check for the current branch and switch to it, then update this file.
+- The worktree `claude/gallant-turing` should be kept in sync with `mcp_more_tools` when resuming sessions (`git reset --hard <sha>`).
 - When committing, always use the `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` trailer.
 - The user uses PyCharm (`.idea/` present) and ruff for linting.
 - Avoid the use of emojis and em-dashes in any veribage or documentation created
