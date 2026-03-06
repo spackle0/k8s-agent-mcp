@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [mcp_enhancement, main]
+    branches: [main]
   pull_request:
-    branches: [mcp_enhancement, main]
+    branches: [main]
 
 jobs:
   test:
