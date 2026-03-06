@@ -16,13 +16,15 @@
 from ollama import ChatResponse, chat
 
 import asyncio
+import os
 
 from fastmcp import Client
 
 from typing import Any
 
 # Base URL for the FastMCP server's streamable-HTTP endpoint.
-MCP_SERVER_URL = "http://localhost:8000/mcp"
+# Override with MCP_SERVER_URL env var when running in Docker.
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://localhost:8000/mcp")
 
 SYSTEM_PROMPT = (
     "You are a Kubernetes troubleshooting assistant. "

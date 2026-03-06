@@ -4,7 +4,9 @@ Basic libraries for kubernetes connectivity
 """
 
 from kubernetes import client, config
+from functools import cache
 
+@cache
 def init():
     """
     Initialize and cache Kubernetes API clients.
@@ -12,10 +14,9 @@ def init():
     This function is safe to call multiple times; it will only perform
     configuration loading and client construction on first use.
     """
-    global core_api, apps_api
-
-    if core_api is not None and apps_api is not None:
-        return core_api, apps_api
+    # Be sure everything can connect to both core and api
+    # features of the Kubernetes cluster.
+    # Consider converting this module into a class for more advanced lifecycle management.
 
     try:
         config.load_incluster_config()
@@ -27,8 +28,6 @@ def init():
     return core_api, apps_api
 
 
-core_api = None
-apps_api = None
 
 
 def list_namespaces() -> list[str]:

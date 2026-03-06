@@ -7,4 +7,4 @@ COPY pyproject.toml /app/
 
 RUN pip install --no-cache-dir .
 
-CMD ["uvicorn", "app.server:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "services.mcp_k8s_server.app.server"]

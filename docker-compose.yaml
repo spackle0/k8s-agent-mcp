@@ -1,0 +1,35 @@
+services:
+
+  mcp-server:
+    build:
+      context: .
+      dockerfile: docker/mcp-server.Dockerfile
+    environment:
+      # Separate kubeconfig to use the docker host instead of
+      # the k3d defulat of 127.0.0.1
+      KUBECONFIG: /root/.kube/config.docker
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount kubeconfig so the server can reach the cluster.
+      - "${HOME}/.kube:/root/.kube:ro"
+    restart: unless-stopped
+
+  agent:
+    build:
+      context: .
+      dockerfile: docker/agent.Dockerfile
+    depends_on:
+      - mcp-server
+    environment:
+      # Route to the mcp-server container, not localhost.
+      MCP_SERVER_URL: http://mcp-server:8000/mcp
+      # Route to Ollama running on the host machine.
+      OLLAMA_HOST: http://host.docker.internal:11434
+    volumes:
+      # Mount kubeconfig if the agent ever needs direct cluster access.
+      - "${HOME}/.kube:/root/.kube:ro"
+    # The agent is an interactive chatbot so keep stdin open and allocate a TTY.
+    stdin_open: true
+    tty: true
+    restart: unless-stopped

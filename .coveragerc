@@ -1,0 +1,40 @@
+# Standard coverage configuration
+[run]
+source = status_tiles
+branch = True
+relative_files = True
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    def __str__
+    if self.debug:
+    if settings.DEBUG
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
+    except ImportError:
+    if TYPE_CHECKING:
+    @abstractmethod
+
+ignore_errors = True
+
+omit =
+    tests/*
+    */__init__.py
+    setup.py
+    */migrations/*
+    *settings*
+    *apps.py
+    manage.py
+    .venv/*
+    venv/*
+
+[html]
+directory = coverage_html
+title = K8s Agent and MCP
+
+[xml]
+output = coverage.xml
