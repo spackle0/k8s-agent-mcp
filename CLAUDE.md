@@ -57,13 +57,9 @@ agent.py  ──(FastMCP streamable-HTTP)──▶  server.py  ──▶  k8s_cl
 | Local cluster | k3d |
 | Planned API | FastAPI + uvicorn (alerting webhook) |
 
-**Important**: Always import from `fastmcp`, never from `mcp.server.fastmcp`:
+**Important**: Always import from `fastmcp` — do not import from `mcp.server.fastmcp`.
 ```python
-# Correct
 from fastmcp import FastMCP, Client
-
-# Wrong — this is the MCP SDK's bundled copy
-from mcp.server.fastmcp import FastMCP
 ```
 
 ---
