@@ -47,7 +47,7 @@ start:
 	SERVER_PID=$$!; \
 	trap "kill $$SERVER_PID" EXIT; \
 	echo "Waiting for MCP server..."; \
-	until curl -so /dev/null http://localhost:8000/mcp 2>/dev/null; do sleep 0.3; done; \
+	until curl -so /dev/null -H "Accept: text/event-stream" http://localhost:8000/mcp 2>/dev/null; do sleep 0.3; done; \
 	uv run python -m services.agent_chatbot.app.agent
 
 # Convenience: run the agent via docker-compose interactively
