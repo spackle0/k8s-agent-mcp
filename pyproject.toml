@@ -16,12 +16,15 @@ dependencies = [
 [dependency-groups]
 dev = [
     {include-group = "lint"},
+    {include-group = "sec"},
     {include-group = "test"},
     "bump-my-version>=1.2.7",
 ]
 lint = [
-    "bandit>=1.9.4",
     "ruff>=0.15.2",
+]
+sec = [
+    "bandit>=1.9.4",
 ]
 test = [
     "pytest>=9.0.2",
@@ -29,3 +32,76 @@ test = [
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
 ]
+
+# ruff configuration
+[tool.ruff]
+show-fixes = true
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+line-length = 120
+target-version = "py314"
+src = ["services"]
+
+[tool.ruff.format]
+# Enable reformatting of code snippets in docstrings.
+docstring-code-format = true
+
+[tool.ruff.lint.isort]
+order-by-type = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# pytest configuration
+[tool.pytest.ini_options]
+addopts="-ra --tb=short "
+# These are clutter
+filterwarnings = [
+    "ignore:datetime.datetime.utcnow:DeprecationWarning",
+    "ignore:datetime.datetime.now:DeprecationWarning"
+]
+
+[tool.coverage.run]
+source = ["services"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+
+# pylint configuration
+[tool.pylint.basic]
+dostring-min-length=10
+
+[tool.pylint.design]
+exclude-too-few-public-methods=true
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = [
+    "E0401", # Disable import errors
+]
+
+[tool.flake8]
+max-line-length=120
+
+# bumpversion configuration
+[tool.bumpversion]
+current_version = "0.1.0"
+commit = false
+tag = false
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+allow_dirty = true
+message = "Version updated from {current_version} to {new_version}"
+
+[[tool.bumpversion.files]]
+filename = [
+    "README.md",
+    "pyproject.toml",
+    "Makefile",
+    ]

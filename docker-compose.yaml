@@ -32,4 +32,7 @@ services:
     # The agent is an interactive chatbot so keep stdin open and allocate a TTY.
     stdin_open: true
     tty: true
+    # Explicitly run the agent module when starting this service so interactive
+    # runs behave consistently whether started via `run` or `up`.
+    command: ["python", "-m", "app.agent"]
     restart: unless-stopped

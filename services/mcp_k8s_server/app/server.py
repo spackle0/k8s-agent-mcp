@@ -26,13 +26,13 @@ def list_namespaces() -> list[str]:
 
 
 @mcp.tool()
-def list_pods(namespace: str) -> list[str]:
+def list_pods(namespace: str) -> list[dict]:
     """List all pods in a given namespace.
 
-    Takes a namespace string and returns a list of pod name strings.
+    Takes a namespace string and returns a list of structured dicts describing
+    each pod (name, phase, ready, restart_count, reason).
     """
-    pods = k8s_client.list_pods(namespace)
-    return [p.metadata.name for p in pods]
+    return k8s_client.list_pods(namespace)
 
 
 @mcp.tool()

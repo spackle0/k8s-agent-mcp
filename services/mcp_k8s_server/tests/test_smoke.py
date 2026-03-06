@@ -2,7 +2,7 @@ import pytest
 import sys
 from pathlib import Path
 
-# Ensure the project root is on sys.path so tests can import the `services` package.
+# Ensure project root is on sys.path so tests can import the `services` package.
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -20,15 +20,19 @@ def patch_k8s_client(monkeypatch):
     This makes the smoke test fast and hermetic: the server functions are
     exercised end-to-end but the underlying K8s calls are stubbed.
     """
-    fake_pod = SimpleNamespace()
-    fake_pod.metadata = SimpleNamespace(name="mypod")
 
     class FakeK8sClient:
         def list_namespaces(self):
             return ["default", "kube-system"]
 
         def list_pods(self, namespace: str):
-            return [fake_pod]
+            return [{
+                "name": "mypod",
+                "phase": "Running",
+                "ready": True,
+                "restart_count": 0,
+                "reason": None,
+            }]
 
         def read_pod_log(self, namespace: str, pod: str, container=None, tail_lines=20):
             return "line1\nline2\nline3"
@@ -48,8 +52,8 @@ def test_list_namespaces():
 def test_list_pods():
     pods = server_app.list_pods("default")
     assert isinstance(pods, list)
-    # server.list_pods returns a list of pod names (strings)
-    assert pods[0] == "mypod"
+    assert isinstance(pods[0], dict)
+    assert pods[0]["name"] == "mypod"
 
 
 def test_read_pod_log():
