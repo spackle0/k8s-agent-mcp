@@ -3,49 +3,146 @@
 Basic libraries for kubernetes connectivity
 """
 
+from functools import cache
+
 from kubernetes import client, config
 
-def init():
+
+class K8sClient:
+    """Connection manager for Kubernetes API clients.
+
+    Responsible for creating, refreshing, and providing access to the
+    underlying Kubernetes API client objects (CoreV1Api and AppsV1Api).
     """
-    Initialize and cache Kubernetes API clients.
 
-    This function is safe to call multiple times; it will only perform
-    configuration loading and client construction on first use.
+    def __init__(self) -> None:
+        self._init_clients()
+
+    def _init_clients(self) -> None:
+        try:
+            config.load_incluster_config()
+        except config.ConfigException:
+            config.load_kube_config()
+
+        self._core_api = client.CoreV1Api()
+        self._apps_api = client.AppsV1Api()
+
+    def core(self) -> client.CoreV1Api:
+        """Return the CoreV1Api instance."""
+        return self._core_api
+
+    def apps(self) -> client.AppsV1Api:
+        """Return the AppsV1Api instance."""
+        return self._apps_api
+
+    def refresh(self) -> None:
+        """Reload configuration and recreate API clients."""
+        self._init_clients()
+
+    def close(self) -> None:
+        """Attempt to close underlying ApiClient connections if supported.
+
+        This is best-effort; the kubernetes ApiClient exposes a `close()` on
+        its `api_client` attribute which we call when available.
+        """
+        try:
+            if hasattr(self._core_api, "api_client") and hasattr(self._core_api.api_client, "close"):
+                self._core_api.api_client.close()
+        except Exception:
+            # Best-effort close; swallow exceptions to avoid noisy shutdown
+            pass
+
+        try:
+            if hasattr(self._apps_api, "api_client") and hasattr(self._apps_api.api_client, "close"):
+                self._apps_api.api_client.close()
+        except Exception:
+            pass
+
+
+@cache
+def get_client() -> K8sClient:
+    """Return a cached K8sClient instance for the process."""
+    return K8sClient()
+
+
+def refresh_client() -> None:
+    """Refresh the cached client's credentials/configuration."""
+    get_client().refresh()
+
+
+def close_client() -> None:
+    """Close the cached client and clear the cache so a new instance will be created.
+
+    Use this when credentials or network resources change and you want a fresh
+    client object on next access.
     """
-    global core_api, apps_api
-
-    if core_api is not None and apps_api is not None:
-        return core_api, apps_api
-
     try:
-        config.load_incluster_config()
-    except config.ConfigException:
-        config.load_kube_config()
-
-    core_api = client.CoreV1Api()
-    apps_api = client.AppsV1Api()
-    return core_api, apps_api
+        get_client().close()
+    finally:
+        # Clear the cached instance so get_client() will construct a new one.
+        get_client.cache_clear()
 
 
-core_api = None
-apps_api = None
-
-
-def list_namespaces():
-    core_api_client, _ = init()
-    ns = core_api_client.list_namespace()
+# Module-level convenience functions (preserve previous public API)
+def list_namespaces() -> list[str]:
+    core_api = get_client().core()
+    ns = core_api.list_namespace()
     return [n.metadata.name for n in ns.items]
 
 
-def list_pods(namespace: str):
-    core_api_client, _ = init()
-    pods = core_api_client.list_namespaced_pod(namespace=namespace)
-    return pods.items
+def list_pods(namespace: str) -> list[dict]:
+    """Return a list of structured pod dicts for the given namespace.
+
+    Each dict contains:
+      - name: str
+      - phase: str
+      - ready: bool
+      - restart_count: int
+      - reason: str | None
+
+    This is JSON-serializable and safe to return from MCP tools.
+    """
+    core_api = get_client().core()
+    pods = core_api.list_namespaced_pod(namespace=namespace)
+
+    result: list[dict] = []
+    for p in pods.items:
+        name = getattr(p.metadata, "name", "")
+        phase = getattr(p.status, "phase", "Unknown")
+
+        # Determine readiness: all container statuses must be ready
+        ready = True
+        restart_count = 0
+        reason = None
+        container_statuses = getattr(p.status, "container_statuses", None) or []
+        for cs in container_statuses:
+            ready = ready and bool(getattr(cs, "ready", False))
+            restart_count += int(getattr(cs, "restart_count", 0))
+            # If a waiting state is present, prefer that reason
+            state = getattr(cs, "state", None)
+            if state:
+                waiting = getattr(state, "waiting", None)
+                if waiting and getattr(waiting, "reason", None):
+                    reason = getattr(waiting, "reason")
+
+        # Fall back to pod-level reason if none found
+        if not reason:
+            reason = getattr(p.status, "reason", None)
+
+        result.append({
+            "name": name,
+            "phase": phase,
+            "ready": ready,
+            "restart_count": restart_count,
+            "reason": reason,
+        })
+
+    return result
 
 
-def read_pod_log(namespace: str, pod: str, container=None, tail_lines=200):
-    core_api_client, _ = init()
-    return core_api_client.read_namespaced_pod_log(
+def read_pod_log(namespace: str, pod: str, container: str | None = None, tail_lines: int = 20) -> str:
+    core_api = get_client().core()
+    return core_api.read_namespaced_pod_log(
         name=pod,
         namespace=namespace,
         container=container,

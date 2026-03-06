@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [mcp_enhancement, main]
+  pull_request:
+    branches: [mcp_enhancement, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Run tests
+        run: bash scripts/run_tests.sh
