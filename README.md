@@ -6,7 +6,7 @@
 
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-[![CI](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/docker-build-test.yaml/badge.svg)](https://github.com/johndoe/my-project/actions/workflows/ci.yml)
+[![CI](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/docker-build-test.yaml/badge.svg)](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/ci.yml)
 
 [![codecov](https://codecov.io/gh/spackle0/k8s-agent-mcp/graph/badge.svg?token=YJVD7W9Q37)](https://codecov.io/gh/spackle0/k8s-agent-mcp)
 
