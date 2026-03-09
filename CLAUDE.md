@@ -132,8 +132,8 @@ return core_api.list_namespaced_pod(namespace=namespace)  # Wrong — not serial
 ## Workflow Preferences
 
 - Do not commit by default. Make code changes and stop. The user reviews `git diff` before deciding to commit. Only commit when explicitly asked.
-- Active branch: `mcp_more_tools`. If the branch does not exist, check for the current branch and switch to it, then update this file.
-- The worktree `claude/gallant-turing` should be kept in sync with `mcp_more_tools` when resuming sessions (`git reset --hard <sha>`).
+- Active branch: `mcp_even_more_tools`. If the branch does not exist, check for the current branch and switch to it, then update this file.
+- The worktree `claude/gallant-turing` should be kept in sync with `mcp_even_more_tools` when resuming sessions (`git reset --hard <sha>`).
 - When committing, always use the `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` trailer.
 - The user uses PyCharm (`.idea/` present) and ruff for linting.
 - Avoid the use of emojis and em-dashes in any veribage or documentation created

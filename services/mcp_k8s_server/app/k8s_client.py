@@ -4,21 +4,13 @@ Basic libraries for kubernetes connectivity
 """
 
 from functools import cache
-
 from kubernetes import client, config
 
 
 class K8sClient:
-    """Connection manager for Kubernetes API clients.
-
-    Responsible for creating, refreshing, and providing access to the
-    underlying Kubernetes API client objects (CoreV1Api and AppsV1Api).
-    """
+    """Holds initialized Kubernetes API clients."""
 
     def __init__(self) -> None:
-        self._init_clients()
-
-    def _init_clients(self) -> None:
         try:
             config.load_incluster_config()
         except config.ConfigException:
@@ -35,29 +27,6 @@ class K8sClient:
         """Return the AppsV1Api instance."""
         return self._apps_api
 
-    def refresh(self) -> None:
-        """Reload configuration and recreate API clients."""
-        self._init_clients()
-
-    def close(self) -> None:
-        """Attempt to close underlying ApiClient connections if supported.
-
-        This is best-effort; the kubernetes ApiClient exposes a `close()` on
-        its `api_client` attribute which we call when available.
-        """
-        try:
-            if hasattr(self._core_api, "api_client") and hasattr(self._core_api.api_client, "close"):
-                self._core_api.api_client.close()
-        except Exception:
-            # Best-effort close; swallow exceptions to avoid noisy shutdown
-            pass
-
-        try:
-            if hasattr(self._apps_api, "api_client") and hasattr(self._apps_api.api_client, "close"):
-                self._apps_api.api_client.close()
-        except Exception:
-            pass
-
 
 @cache
 def get_client() -> K8sClient:
@@ -65,26 +34,9 @@ def get_client() -> K8sClient:
     return K8sClient()
 
 
-def refresh_client() -> None:
-    """Refresh the cached client's credentials/configuration."""
-    get_client().refresh()
-
-
-def close_client() -> None:
-    """Close the cached client and clear the cache so a new instance will be created.
-
-    Use this when credentials or network resources change and you want a fresh
-    client object on next access.
-    """
-    try:
-        get_client().close()
-    finally:
-        # Clear the cached instance so get_client() will construct a new one.
-        get_client.cache_clear()
-
-
-# Module-level convenience functions (preserve previous public API)
 def list_namespaces() -> list[str]:
+    """Return a list of namespaces in a kubernetes cluster.
+    """
     core_api = get_client().core()
     ns = core_api.list_namespace()
     return [n.metadata.name for n in ns.items]
@@ -129,13 +81,15 @@ def list_pods(namespace: str) -> list[dict]:
         if not reason:
             reason = getattr(p.status, "reason", None)
 
-        result.append({
-            "name": name,
-            "phase": phase,
-            "ready": ready,
-            "restart_count": restart_count,
-            "reason": reason,
-        })
+        result.append(
+            {
+                "name": name,
+                "phase": phase,
+                "ready": ready,
+                "restart_count": restart_count,
+                "reason": reason,
+            }
+        )
 
     return result
 

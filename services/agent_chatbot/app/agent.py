@@ -68,8 +68,7 @@ def format_tools_for_log(tools: dict) -> str:
     for name, tool in tools.items():
         # Summarize each parameter as "name: type (required)" or "name: type".
         params = ", ".join(
-            f"{k}: {v.get('type', '?')}"
-            + (" (required)" if k in tool.inputSchema.get("required", []) else "")
+            f"{k}: {v.get('type', '?')}" + (" (required)" if k in tool.inputSchema.get("required", []) else "")
             for k, v in tool.inputSchema.get("properties", {}).items()
         )
         lines.append(f"  {name}({params})")
