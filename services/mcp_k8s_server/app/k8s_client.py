@@ -58,20 +58,20 @@ def list_pods(namespace: str) -> list[dict]:
     pods = core_api.list_namespaced_pod(namespace=namespace)
 
     result: list[dict] = []
-    for p in pods.items:
-        name = getattr(p.metadata, "name", "")
-        phase = getattr(p.status, "phase", "Unknown")
+    for pod in pods.items:
+        name = getattr(pod.metadata, "name", "")
+        phase = getattr(pod.status, "phase", "Unknown")
 
         # Determine readiness: all container statuses must be ready
         ready = True
         restart_count = 0
         reason = None
-        container_statuses = getattr(p.status, "container_statuses", None) or []
-        for cs in container_statuses:
-            ready = ready and bool(getattr(cs, "ready", False))
-            restart_count += int(getattr(cs, "restart_count", 0))
+        container_statuses = getattr(pod.status, "container_statuses", None) or []
+        for status in container_statuses:
+            ready = ready and bool(getattr(status, "ready", False))
+            restart_count += int(getattr(status, "restart_count", 0))
             # If a waiting state is present, prefer that reason
-            state = getattr(cs, "state", None)
+            state = getattr(status, "state", None)
             if state:
                 waiting = getattr(state, "waiting", None)
                 if waiting and getattr(waiting, "reason", None):
@@ -79,7 +79,7 @@ def list_pods(namespace: str) -> list[dict]:
 
         # Fall back to pod-level reason if none found
         if not reason:
-            reason = getattr(p.status, "reason", None)
+            reason = getattr(pod.status, "reason", None)
 
         result.append(
             {
