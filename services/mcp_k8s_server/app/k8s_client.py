@@ -95,6 +95,11 @@ def list_pods(namespace: str) -> list[dict]:
 
 
 def read_pod_log(namespace: str, pod: str, container: str | None = None, tail_lines: int = 20) -> str:
+    """Return the last tail_lines lines of logs for a pod's container.
+
+    If container is None, the pod's default container is used. Returns a plain
+    string. Returns an empty string if no logs are available.
+    """
     core_api = get_client().core()
     return core_api.read_namespaced_pod_log(
         name=pod,
