@@ -4,21 +4,13 @@ Basic libraries for kubernetes connectivity
 """
 
 from functools import cache
-
 from kubernetes import client, config
 
 
 class K8sClient:
-    """Connection manager for Kubernetes API clients.
-
-    Responsible for creating, refreshing, and providing access to the
-    underlying Kubernetes API client objects (CoreV1Api and AppsV1Api).
-    """
+    """Holds initialized Kubernetes API clients."""
 
     def __init__(self) -> None:
-        self._init_clients()
-
-    def _init_clients(self) -> None:
         try:
             config.load_incluster_config()
         except config.ConfigException:
@@ -35,29 +27,6 @@ class K8sClient:
         """Return the AppsV1Api instance."""
         return self._apps_api
 
-    def refresh(self) -> None:
-        """Reload configuration and recreate API clients."""
-        self._init_clients()
-
-    def close(self) -> None:
-        """Attempt to close underlying ApiClient connections if supported.
-
-        This is best-effort; the kubernetes ApiClient exposes a `close()` on
-        its `api_client` attribute which we call when available.
-        """
-        try:
-            if hasattr(self._core_api, "api_client") and hasattr(self._core_api.api_client, "close"):
-                self._core_api.api_client.close()
-        except Exception:
-            # Best-effort close; swallow exceptions to avoid noisy shutdown
-            pass
-
-        try:
-            if hasattr(self._apps_api, "api_client") and hasattr(self._apps_api.api_client, "close"):
-                self._apps_api.api_client.close()
-        except Exception:
-            pass
-
 
 @cache
 def get_client() -> K8sClient:
@@ -65,26 +34,9 @@ def get_client() -> K8sClient:
     return K8sClient()
 
 
-def refresh_client() -> None:
-    """Refresh the cached client's credentials/configuration."""
-    get_client().refresh()
-
-
-def close_client() -> None:
-    """Close the cached client and clear the cache so a new instance will be created.
-
-    Use this when credentials or network resources change and you want a fresh
-    client object on next access.
-    """
-    try:
-        get_client().close()
-    finally:
-        # Clear the cached instance so get_client() will construct a new one.
-        get_client.cache_clear()
-
-
-# Module-level convenience functions (preserve previous public API)
 def list_namespaces() -> list[str]:
+    """Return a list of namespaces in a kubernetes cluster.
+    """
     core_api = get_client().core()
     ns = core_api.list_namespace()
     return [n.metadata.name for n in ns.items]
@@ -106,20 +58,20 @@ def list_pods(namespace: str) -> list[dict]:
     pods = core_api.list_namespaced_pod(namespace=namespace)
 
     result: list[dict] = []
-    for p in pods.items:
-        name = getattr(p.metadata, "name", "")
-        phase = getattr(p.status, "phase", "Unknown")
+    for pod in pods.items:
+        name = getattr(pod.metadata, "name", "")
+        phase = getattr(pod.status, "phase", "Unknown")
 
         # Determine readiness: all container statuses must be ready
         ready = True
         restart_count = 0
         reason = None
-        container_statuses = getattr(p.status, "container_statuses", None) or []
-        for cs in container_statuses:
-            ready = ready and bool(getattr(cs, "ready", False))
-            restart_count += int(getattr(cs, "restart_count", 0))
+        container_statuses = getattr(pod.status, "container_statuses", None) or []
+        for status in container_statuses:
+            ready = ready and bool(getattr(status, "ready", False))
+            restart_count += int(getattr(status, "restart_count", 0))
             # If a waiting state is present, prefer that reason
-            state = getattr(cs, "state", None)
+            state = getattr(status, "state", None)
             if state:
                 waiting = getattr(state, "waiting", None)
                 if waiting and getattr(waiting, "reason", None):
@@ -127,20 +79,27 @@ def list_pods(namespace: str) -> list[dict]:
 
         # Fall back to pod-level reason if none found
         if not reason:
-            reason = getattr(p.status, "reason", None)
+            reason = getattr(pod.status, "reason", None)
 
-        result.append({
-            "name": name,
-            "phase": phase,
-            "ready": ready,
-            "restart_count": restart_count,
-            "reason": reason,
-        })
+        result.append(
+            {
+                "name": name,
+                "phase": phase,
+                "ready": ready,
+                "restart_count": restart_count,
+                "reason": reason,
+            }
+        )
 
     return result
 
 
 def read_pod_log(namespace: str, pod: str, container: str | None = None, tail_lines: int = 20) -> str:
+    """Return the last tail_lines lines of logs for a pod's container.
+
+    If container is None, the pod's default container is used. Returns a plain
+    string. Returns an empty string if no logs are available.
+    """
     core_api = get_client().core()
     return core_api.read_namespaced_pod_log(
         name=pod,
