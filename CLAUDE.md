@@ -16,8 +16,9 @@ Project context for Claude Code. Updated as the project evolves.
 services/
   mcp_k8s_server/
     app/
-      server.py       # FastMCP server — defines @mcp.tool() functions
-      k8s_client.py   # Thin wrapper around the kubernetes Python client
+      server.py             # FastMCP server — defines @mcp.tool() functions
+      k8s_client.py         # Thin wrapper around the kubernetes Python client
+      prometheus_client.py  # Prometheus HTTP API client (PromQL queries)
     tests/
       test_smoke.py   # Smoke tests with FakeK8sClient
   agent_chatbot/
@@ -84,6 +85,7 @@ Defined in `server.py`, implemented in `k8s_client.py`:
 | `list_namespaces` | `() -> list[str]` | Namespace name strings |
 | `list_pods` | `(namespace: str) -> list[dict]` | Pod status dicts (name, phase, ready, restart_count, reason) |
 | `read_pod_log` | `(namespace: str, pod: str, container: str \| None, tail_lines: int) -> str` | Last N lines of pod logs |
+| `query_prometheus` | `(query: str) -> list[dict]` | Instant PromQL query results (metric labels, value, timestamp) |
 
 ---
 
@@ -149,11 +151,44 @@ return core_api.list_namespaced_pod(namespace=namespace)  # Wrong — not serial
 
 ---
 
+## Environment Variables
+
+Configuration is managed via a `.env` file that is not committed to version control.
+
+- `.env.template` — committed, contains all variables with safe defaults and masked secrets
+- `.env` — local only, listed in `.gitignore`, created by copying the template
+
+**Convention**: whenever a new env var is added, update `.env.template` with a safe default or masked placeholder (e.g. `API_KEY="your-api-key-here"`). Never put real credentials in `.env.template`.
+
+| Variable | Default | Used by |
+|---|---|---|
+| `PROMETHEUS_URL` | `http://localhost:9090` | `prometheus_client.py` |
+| `MCP_SERVER_URL` | `http://localhost:8000/mcp` | `agent.py` |
+| `OLLAMA_HOST` | `http://localhost:11434` | ollama client (auto-detected) |
+
+---
+
 ## Local Development
 
-Start the k3d cluster before running either service:
+Copy the env template before first run:
+```bash
+cp .env.template .env
+```
+
+Start the k3d cluster (required for K8s tools):
 ```bash
 k3d cluster start
+```
+
+Start Ollama and pull the model (required for the agent):
+```bash
+ollama serve          # starts the Ollama server on localhost:11434
+ollama pull llama3.1:8b
+```
+
+Or use the Makefile target which does both:
+```bash
+make ollama
 ```
 
 Run the MCP server:
@@ -161,7 +196,12 @@ Run the MCP server:
 uv run python -m services.mcp_k8s_server.app.server
 ```
 
-Run the agent chatbot:
+Run the agent chatbot (requires MCP server already running):
 ```bash
 uv run python -m services.agent_chatbot.app.agent
+```
+
+Or start both together with:
+```bash
+make start
 ```

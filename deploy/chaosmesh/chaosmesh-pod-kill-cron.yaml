@@ -1,13 +1,14 @@
 apiVersion: chaos-mesh.org/v1alpha1
-kind: PodChaos
+kind: Schedule
 metadata:
   name: pod-kill-example
   namespace: default
 spec:
-  action: pod-kill
-  mode: one
-  selector:
-    labelSelectors:
-      app: example-web
-  scheduler:
-    cron: "*/2 * * * *"  # every 2 minutes
+  schedule: "*/2 * * * *"
+  type: PodChaos
+  podChaos:
+    action: pod-kill
+    mode: one
+    selector:
+      labelSelectors:
+        app: example-web
