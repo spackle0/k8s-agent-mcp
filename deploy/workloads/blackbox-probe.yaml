@@ -1,0 +1,35 @@
+# blackbox-probe.yaml
+# Probe CR tells Prometheus Operator to scrape blackbox exporter results for example-web.
+# Requires blackbox exporter installed via Helm (see Makefile: make blackbox-install).
+#
+# Key metrics exposed after this is applied:
+#   probe_success                  - 1 if HTTP 2xx, 0 if not
+#   probe_duration_seconds         - full round-trip time including any injected latency
+#   probe_http_status_code         - HTTP response code
+#
+# To watch latency during a Chaos Mesh NetworkChaos experiment:
+#   kubectl -n default get probe example-web
+#   PromQL: probe_duration_seconds{job="example-web-blackbox"}
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: example-web-blackbox
+  namespace: default
+  labels:
+    app: example-web
+    release: prometheus
+spec:
+  jobName: example-web-blackbox
+  interval: 5s
+  module: http_2xx
+  prober:
+    url: blackbox-exporter.default.svc.cluster.local:9115
+    scheme: http
+    path: /probe
+  targets:
+    staticConfig:
+      static:
+        - http://example-web.default.svc.cluster.local:8080
+      labels:
+        app: example-web
+        namespace: default

@@ -23,6 +23,12 @@ cp .env.template .env
 
 Edit `.env` to match your local environment. The file is listed in `.gitignore` and will not be committed. See `.env.template` for all available variables and their defaults.
 
+Create the k3d cluster (first time only):
+
+```bash
+k3d cluster create --config cluster.yaml
+```
+
 ## Docker Compose (interactive agent)
 
 The `agent` service is interactive — the container keeps STDIN open and allocates a TTY so you can type directly into the running Python process.

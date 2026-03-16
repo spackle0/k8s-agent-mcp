@@ -36,6 +36,7 @@ scripts/
 .github/
   workflows/
     ci.yaml           # CI: runs tests on push/PR to main
+cluster.yaml          # k3d cluster definition (name: k8s-agent, 1 server, 2 agents)
 docker-compose.yaml
 pyproject.toml        # uv-managed dependencies
 ```
@@ -175,9 +176,10 @@ Copy the env template before first run:
 cp .env.template .env
 ```
 
-Start the k3d cluster (required for K8s tools):
+Create and start the k3d cluster (required for K8s tools):
 ```bash
-k3d cluster start
+make cluster-create   # first time only
+make cluster-start
 ```
 
 Start Ollama and pull the model (required for the agent):
