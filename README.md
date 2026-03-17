@@ -6,12 +6,28 @@
 
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-[![CI](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/docker-build-test.yaml/badge.svg)](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/ci.yaml/badge.svg)](https://github.com/spackle0/k8s-agent-mcp/actions/workflows/ci.yaml)
 
 [![codecov](https://codecov.io/gh/spackle0/k8s-agent-mcp/graph/badge.svg?token=YJVD7W9Q37)](https://codecov.io/gh/spackle0/k8s-agent-mcp)
 
 
 An experiment in Agentic AI with a Kubernetes slant
+
+## Setup
+
+Copy the environment template before running anything locally:
+
+```bash
+cp .env.template .env
+```
+
+Edit `.env` to match your local environment. The file is listed in `.gitignore` and will not be committed. See `.env.template` for all available variables and their defaults.
+
+Create the k3d cluster (first time only):
+
+```bash
+k3d cluster create --config cluster.yaml
+```
 
 ## Docker Compose (interactive agent)
 

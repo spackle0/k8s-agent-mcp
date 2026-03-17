@@ -16,15 +16,28 @@ Project context for Claude Code. Updated as the project evolves.
 services/
   mcp_k8s_server/
     app/
-      server.py       # FastMCP server — defines @mcp.tool() functions
-      k8s_client.py   # Thin wrapper around the kubernetes Python client
+      server.py             # FastMCP server — defines @mcp.tool() functions
+      k8s_client.py         # Thin wrapper around the kubernetes Python client
+      prometheus_client.py  # Prometheus HTTP API client (PromQL queries)
+    tests/
+      test_smoke.py   # Smoke tests with FakeK8sClient
   agent_chatbot/
     app/
       agent.py        # Interactive LLM chatbot with agentic tool loop
+    tests/
+      .gitkeep        # Placeholder so git tracks the empty directory
 deploy/
   rbac-readonly.yaml  # K8s RBAC for in-cluster service account
 docker/
   mcp-server.Dockerfile
+  agent.Dockerfile
+scripts/
+  run_tests.sh        # pytest runner; treats exit codes 4/5 as success
+.github/
+  workflows/
+    ci.yaml           # CI: runs tests on push/PR to main
+cluster.yaml          # k3d cluster definition (name: k8s-agent, 1 server, 2 agents)
+docker-compose.yaml
 pyproject.toml        # uv-managed dependencies
 ```
 
@@ -71,9 +84,9 @@ Defined in `server.py`, implemented in `k8s_client.py`:
 | Tool | Signature | Returns |
 |---|---|---|
 | `list_namespaces` | `() -> list[str]` | Namespace name strings |
-| `list_pods` | `(namespace: str) -> list[str]` | Pod name strings in that namespace |
-
-**Planned**: Enrich `list_pods` to return status dicts (phase, ready, restart_count, reason) so the LLM can identify CrashLoopBackOff pods. Add `read_pod_log` tool.
+| `list_pods` | `(namespace: str) -> list[dict]` | Pod status dicts (name, phase, ready, restart_count, reason) |
+| `read_pod_log` | `(namespace: str, pod: str, container: str \| None, tail_lines: int) -> str` | Last N lines of pod logs |
+| `query_prometheus` | `(query: str) -> list[dict]` | Instant PromQL query results (metric labels, value, timestamp) |
 
 ---
 
@@ -100,15 +113,14 @@ def list_pods(namespace: str) -> list[dict]:
 ```
 
 ### Tool Return Types
-MCP tools must return JSON-serializable types. The kubernetes Python client returns `V1Pod` and similar objects that **cannot** be serialized — always extract fields explicitly in `server.py`:
+MCP tools must return JSON-serializable types. The kubernetes Python client returns `V1Pod` and similar objects that **cannot** be serialized — always extract fields explicitly into plain dicts or strings. In this project, `k8s_client.py` handles extraction so `server.py` tools can return its output directly:
 
 ```python
-# Wrong — V1Pod is not serializable
+# k8s_client.py extracts fields into a plain dict — safe to return from MCP tool
 return k8s_client.list_pods(namespace)
 
-# Correct — extract what you need
-pods = k8s_client.list_pods(namespace)
-return [p.metadata.name for p in pods]
+# Never return raw kubernetes client objects from a tool
+return core_api.list_namespaced_pod(namespace=namespace)  # Wrong — not serializable
 ```
 
 ### Tool Design Philosophy
@@ -123,8 +135,8 @@ return [p.metadata.name for p in pods]
 ## Workflow Preferences
 
 - Do not commit by default. Make code changes and stop. The user reviews `git diff` before deciding to commit. Only commit when explicitly asked.
-- Active branch: `mcp_enhancement`. If the branch does not exist, check for the current branch and switch to it, then update this file.
-- The worktree `claude/gallant-turing` should be kept in sync with `mcp_enhancement` when resuming sessions (`git reset --hard <sha>`).
+- Active branch: `mcp_even_more_tools`. If the branch does not exist, check for the current branch and switch to it, then update this file.
+- The worktree `claude/gallant-turing` should be kept in sync with `mcp_even_more_tools` when resuming sessions (`git reset --hard <sha>`).
 - When committing, always use the `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` trailer.
 - The user uses PyCharm (`.idea/` present) and ruff for linting.
 - Avoid the use of emojis and em-dashes in any veribage or documentation created
@@ -134,19 +146,51 @@ return [p.metadata.name for p in pods]
 
 ## Planned Features
 
-1. **Enrich `list_pods`** with status fields (phase, ready, restart_count, reason)
-2. **`read_pod_log` tool** — already in `k8s_client.py`, needs MCP tool wrapper
-3. **`get_events` tool** — Kubernetes events are often the first place to look when troubleshooting
-4. **FastAPI alerting webhook** — stateless endpoint that accepts alert payloads (Prometheus/Alertmanager format), runs the agent, returns structured diagnosis. Persistent MCP client via FastAPI lifespan, asyncio.Lock for concurrent request safety.
-5. **Agentic loop safety** — consider a max iterations guard on the `while True` loop in `run_turn()`
+1. **`get_events` tool** — Kubernetes events are often the first place to look when troubleshooting
+2. **FastAPI alerting webhook** — stateless endpoint that accepts alert payloads (Prometheus/Alertmanager format), runs the agent, returns structured diagnosis. Persistent MCP client via FastAPI lifespan, asyncio.Lock for concurrent request safety.
+3. **Agentic loop safety** — consider a max iterations guard on the `while True` loop in `run_turn()`
+
+---
+
+## Environment Variables
+
+Configuration is managed via a `.env` file that is not committed to version control.
+
+- `.env.template` — committed, contains all variables with safe defaults and masked secrets
+- `.env` — local only, listed in `.gitignore`, created by copying the template
+
+**Convention**: whenever a new env var is added, update `.env.template` with a safe default or masked placeholder (e.g. `API_KEY="your-api-key-here"`). Never put real credentials in `.env.template`.
+
+| Variable | Default | Used by |
+|---|---|---|
+| `PROMETHEUS_URL` | `http://localhost:9090` | `prometheus_client.py` |
+| `MCP_SERVER_URL` | `http://localhost:8000/mcp` | `agent.py` |
+| `OLLAMA_HOST` | `http://localhost:11434` | ollama client (auto-detected) |
 
 ---
 
 ## Local Development
 
-Start the k3d cluster before running either service:
+Copy the env template before first run:
 ```bash
-k3d cluster start
+cp .env.template .env
+```
+
+Create and start the k3d cluster (required for K8s tools):
+```bash
+make cluster-create   # first time only
+make cluster-start
+```
+
+Start Ollama and pull the model (required for the agent):
+```bash
+ollama serve          # starts the Ollama server on localhost:11434
+ollama pull llama3.1:8b
+```
+
+Or use the Makefile target which does both:
+```bash
+make ollama
 ```
 
 Run the MCP server:
@@ -154,7 +198,12 @@ Run the MCP server:
 uv run python -m services.mcp_k8s_server.app.server
 ```
 
-Run the agent chatbot:
+Run the agent chatbot (requires MCP server already running):
 ```bash
 uv run python -m services.agent_chatbot.app.agent
+```
+
+Or start both together with:
+```bash
+make start
 ```
