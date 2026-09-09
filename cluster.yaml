@@ -5,3 +5,11 @@ metadata:
 servers: 1
 agents: 2
 image: rancher/k3s:v1.33.3-k3s1
+registries:
+  use:
+    - k3d-registry:5000
+  config: |
+    morrors:
+      "localhost:5000":
+        endpoint:
+          - "http://k3d-registry:5000"
