@@ -62,11 +62,14 @@ def list_pods(namespace: str) -> list[dict]:
         name = getattr(pod.metadata, "name", "")
         phase = getattr(pod.status, "phase", "Unknown")
 
-        # Determine readiness: all container statuses must be ready
-        ready = True
+        # Determine readiness: all container statuses must be ready. A pod with
+        # no container statuses at all has not started its containers yet
+        # (Pending, unschedulable, image pull in progress), so it is not ready.
+        # Seeding this True would report such a pod as healthy to the LLM.
+        container_statuses = getattr(pod.status, "container_statuses", None) or []
+        ready = bool(container_statuses)
         restart_count = 0
         reason = None
-        container_statuses = getattr(pod.status, "container_statuses", None) or []
         for status in container_statuses:
             ready = ready and bool(getattr(status, "ready", False))
             restart_count += int(getattr(status, "restart_count", 0))
