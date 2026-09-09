@@ -20,6 +20,13 @@ Two things this series has that most do not:
 Audience: platform and SRE engineers who are LLM-curious but skeptical. Assume
 Kubernetes fluency, assume nothing about MCP.
 
+**Everything runs on k3d.** Readers get a disposable three-node cluster from one
+`make cluster-create`, which means they can follow along, inject real faults,
+and throw the whole thing away. That on-ramp matters more than it sounds: a
+tutorial that needs a real cluster gets read, and a tutorial that runs in a
+minute gets *done*. Keep every command in the series k3d-first, and confine
+"this works on any cluster" to a single aside per post at most.
+
 The honest framing that will earn trust: this is not a replacement for knowing
 your cluster. It compresses the first ten minutes of triage. Say that out loud in
 post 1, because readers in this audience are allergic to overclaiming and will
@@ -75,6 +82,12 @@ interesting decisions are all in what you choose not to build.
   different API call, not when it is a filter over data you already have.
   Narrow tools push your judgment into the tool surface and make the model worse
   at situations you did not anticipate.
+- **The counter-example that proves the rule: `query_prometheus`.** It is a
+  genuinely new tool because it is a different API call reaching a different
+  system, and it exposes a whole class of faults that pod status cannot express.
+  Contrast it with the `get_crashlooping_pods` that got rejected. Same question
+  asked of both: does this need a call you cannot already make? Post 4 pays this
+  off by measuring what the tool actually buys.
 - In-cluster config with kubeconfig fallback, so one image runs in both places.
 
 **Code to show**: `server.py` in full, `k8s_client.list_pods` extraction.
@@ -117,13 +130,23 @@ demonstrate on a healthy cluster, which proves nothing.
   network latency. Bounded durations, reversible, declarative.
 - Blackbox exporter and the Probe CR, so injected latency is visible as
   `probe_duration_seconds` rather than a claim.
-- **Run the agent against each failure and publish what it actually said.**
-  Including the failures. The pod-kill case is easy and it will nail it. The
-  latency case it will probably miss, because `list_pods` and `read_pod_log`
-  cannot see network latency at all. That miss is the most instructive moment in
-  the entire series: the agent's ceiling is its tool surface, not its model.
-- Which leads directly to: what tool would fix that? `get_events` first, because
-  events are where Kubernetes writes down what it noticed. Then metrics.
+- **Run the agent against each failure and publish what it actually said**,
+  including where it falls down. Pod-kill and pod-failure are easy: they show up
+  directly in `list_pods` and the agent nails them.
+- **Then run the network-delay experiment with `query_prometheus` removed from
+  the tool list.** The agent checks pods, finds everything Running and ready
+  with zero restarts, and confidently reports the workload healthy. It is not
+  wrong about anything it can see. `list_pods` and `read_pod_log` simply cannot
+  express latency.
+- **Then put the tool back and run it again.** The agent finds healthy pods,
+  reasons that the fault must be somewhere pod status cannot reach, queries
+  `probe_duration_seconds`, and finds the 200ms. Same model, same prompt, one
+  more tool.
+- That A/B is the strongest evidence in the series for the thesis, and it is
+  worth staging deliberately rather than narrating after the fact. The agent's
+  ceiling is its tool surface, not its model.
+- Which leads to what is still missing: `get_events`, because events are where
+  Kubernetes writes down what it noticed, and it is the obvious next gap.
 - A note on evaluation. Once you have reproducible failures, you have a
   regression suite. Change the model or a docstring, rerun the experiments,
   compare. Gesture at this even if you have not built it, because it is the
