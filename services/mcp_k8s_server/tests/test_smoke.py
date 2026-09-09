@@ -20,13 +20,15 @@ def patch_k8s_client(monkeypatch):
 
         @staticmethod
         def list_pods(namespace: str):
-            return [{
-                "name": "mypod",
-                "phase": "Running",
-                "ready": True,
-                "restart_count": 0,
-                "reason": None,
-            }]
+            return [
+                {
+                    "name": "mypod",
+                    "phase": "Running",
+                    "ready": True,
+                    "restart_count": 0,
+                    "reason": None,
+                }
+            ]
 
         @staticmethod
         def read_pod_log(namespace: str, pod: str, container=None, tail_lines=20):
@@ -35,7 +37,13 @@ def patch_k8s_client(monkeypatch):
     monkeypatch.setattr(server_app.k8s_client, "get_client", lambda: FakeK8sClient())
     monkeypatch.setattr(server_app.k8s_client, "list_namespaces", lambda: FakeK8sClient().list_namespaces())
     monkeypatch.setattr(server_app.k8s_client, "list_pods", lambda ns: FakeK8sClient().list_pods(ns))
-    monkeypatch.setattr(server_app.k8s_client, "read_pod_log", lambda ns, p, container=None, tail_lines=20: FakeK8sClient().read_pod_log(ns, p, container=container, tail_lines=tail_lines))
+    monkeypatch.setattr(
+        server_app.k8s_client,
+        "read_pod_log",
+        lambda ns, p, container=None, tail_lines=20: FakeK8sClient().read_pod_log(
+            ns, p, container=container, tail_lines=tail_lines
+        ),
+    )
 
 
 def test_list_namespaces():

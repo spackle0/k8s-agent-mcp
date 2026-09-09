@@ -1,0 +1,69 @@
+# test-workload.yaml
+# Sets up a workload to be monitored by Prometheus
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-web
+  namespace: default
+  labels:
+    app: example-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: example-web
+  template:
+    metadata:
+      labels:
+        app: example-web
+    spec:
+      containers:
+      - name: web
+        image: quay.io/brancz/prometheus-example-app:v0.5.0
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-web
+  namespace: default
+  labels:
+    app: example-web
+spec:
+  selector:
+    app: example-web
+  ports:
+  - port: 8080
+    targetPort: http
+    name: http
+---
+# kubectl api-resources --api-group=monitoring.coreos.com
+# Installed by prometheus helm chart
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: example-web
+  namespace: default
+  labels:
+    app: example-web
+    release: prometheus  # matches the helm release name "helm list -A"
+spec:
+  selector:
+    matchLabels:
+      app: example-web
+  endpoints:
+  - port: http
+    # Careful how short you make this to avoid network saturation
+    # And for any rates in prometheus, be sure to have at least 2x this value
+    # since rate needs at least two data points
+    interval: 5s
+    path: /metrics

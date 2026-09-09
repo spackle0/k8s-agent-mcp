@@ -5,13 +5,15 @@ services:
       context: .
       dockerfile: docker/mcp-server.Dockerfile
     environment:
-      # Separate kubeconfig to use the docker host instead of
-      # the k3d defulat of 127.0.0.1
+      # Separate kubeconfig pointing at a host-reachable API server address.
+      # A kubeconfig whose server is 127.0.0.1 is unreachable from inside the
+      # container, so point this file at the cluster's routable address.
       KUBECONFIG: /root/.kube/config.docker
     ports:
       - "8000:8000"
     volumes:
-      # Mount kubeconfig so the server can reach the cluster.
+      # Mount kubeconfig so the server can reach the cluster. This is the only
+      # container that gets cluster credentials.
       - "${HOME}/.kube:/root/.kube:ro"
     restart: unless-stopped
 
@@ -26,13 +28,15 @@ services:
       MCP_SERVER_URL: http://mcp-server:8000/mcp
       # Route to Ollama running on the host machine.
       OLLAMA_HOST: http://host.docker.internal:11434
-    volumes:
-      # Mount kubeconfig if the agent ever needs direct cluster access.
-      - "${HOME}/.kube:/root/.kube:ro"
+    # No kubeconfig mount. The agent reaches the cluster only through the MCP
+    # server's read-only tools, and giving it credentials would collapse that
+    # boundary: a kubeconfig here carries the developer's own permissions,
+    # which are typically far broader than the read-only ClusterRole.
+    #
     # The agent is an interactive chatbot so keep stdin open and allocate a TTY.
     stdin_open: true
     tty: true
     # Explicitly run the agent module when starting this service so interactive
     # runs behave consistently whether started via `run` or `up`.
-    command: ["python", "-m", "app.agent"]
+    command: ["python", "-m", "services.agent_chatbot.app.agent"]
     restart: unless-stopped

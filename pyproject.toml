@@ -36,7 +36,7 @@ test = [
 # ruff configuration
 [tool.ruff]
 show-fixes = true
-select = [
+lint.select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
     "F",  # pyflakes
